@@ -1,0 +1,3 @@
+# Contains real RFID tag UIDs -- never commit this
+tags_config.h
+.vscode
