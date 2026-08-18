@@ -338,7 +338,8 @@ void checkForCard() {
   } else if (matchesUID(tag4UID)) {
     toggleSunriseMode();
   } else {
-    Serial.println("Unrecognized tag.");
+    Serial.print("Unrecognized tag. UID:");
+    printUID();
   }
 
   rfid.PICC_HaltA();
@@ -360,6 +361,20 @@ bool matchesUID(byte *knownUID) {
     if (rfid.uid.uidByte[i] != knownUID[i]) return false;
   }
   return true;
+}
+
+/*
+printUID
+Description: Prints the UID of the most recently scanned tag to
+             Serial in space-separated two-digit hex format.
+*/
+void printUID() {
+  for (byte i = 0; i < rfid.uid.size; i++) {
+    Serial.print(' ');
+    if (rfid.uid.uidByte[i] < 0x10) Serial.print('0');
+    Serial.print(rfid.uid.uidByte[i], HEX);
+  }
+  Serial.println();
 }
 
 /*
