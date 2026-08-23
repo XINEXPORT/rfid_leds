@@ -64,7 +64,7 @@ Description:    LED_PIN is referencing pin 6 on the Arduino Uno.
                 COLOR_ORDER is the color channel order the strip expects (GRB).
 */
 #define LED_PIN     6
-#define NUM_LEDS    300
+#define NUM_LEDS    60
 #define BRIGHTNESS  200
 #define LED_TYPE    WS2812B
 #define COLOR_ORDER GRB
@@ -93,7 +93,7 @@ Description:    leds[NUM_LEDS] is the FastLED pixel array, sized by NUM_LEDS.
 */
 CRGB leds[NUM_LEDS];
 
-enum Mode { OFF, RAINBOW, HALLOWEEN, OCEAN, SUNRISE, DISTURB, FOREST };
+enum Mode { OFF, RAINBOW, HALLOWEEN, OCEAN, SUNRISE, DISTURB, FOREST, BLUESTEEL };
 Mode currentMode = OFF;
 
 // OffSet values are initialized to 0 because the FastLED hue values range from 0-255.
@@ -103,7 +103,13 @@ uint8_t oceanOffset = 0;
 uint8_t sunriseOffset = 0;
 uint8_t disturbOffset = 0;
 uint8_t forestOffset = 0;
+uint8_t blueSteelOffset = 0;
 
+// Mutables variables
+unsigned long blueSteelInterval = 100;
+
+//Boolean Flags
+bool blueSteelAccelerating = true;
 
 // Lower interval values are faster and higher interval values are slower.
 const unsigned long RAINBOW_INTERVAL   = 20;
@@ -112,6 +118,9 @@ const unsigned long OCEAN_INTERVAL     = 10;
 const unsigned long SUNRISE_INTERVAL   = 20;
 const unsigned long DISTURB_INTERVAL = 20;
 const unsigned long FOREST_INTERVAL = 100;
+const unsigned long BLUESTEEL_MIN_INTERVAL = 5;  
+const unsigned long BLUESTEEL_MAX_INTERVAL = 100; 
+const unsigned long BLUESTEEL_STEP = 2;  
 
 unsigned long lastRainbowUpdate   = 0;
 unsigned long lastHalloweenUpdate = 0;
@@ -119,6 +128,7 @@ unsigned long lastOceanUpdate     = 0;
 unsigned long lastSunriseUpdate   = 0;
 unsigned long lastDisturbUpdate = 0;
 unsigned long lastForestUpdate = 0;
+unsigned long lastBlueSteelUpdate = 0;
 
 /*
 Setup
@@ -162,12 +172,14 @@ void startScan() {
     updateHalloween();
   } else if (currentMode == OCEAN) {
     updateOcean();
-  } else if (currentMode == SUNRISE){
+  } else if (currentMode == SUNRISE) {
     updateSunrise();
   } else if (currentMode == DISTURB) {
     updateDisturb();
   } else if (currentMode == FOREST) {
     updateForest();
+  } else if (currentMode == BLUESTEEL) {
+    updateBlueSteel();
   } else {
     updateOff();
   }
@@ -291,6 +303,59 @@ void updateForest() {
 }
 
 /*
+updateBlueSteel
+Description: Redraws the chase once blueSteelInterval has elapsed, then
+             speeds up or slows down via accelerateBlueSteel/decelerateBlueSteel,
+             cycling endlessly between BLUESTEEL_MIN_INTERVAL and
+             BLUESTEEL_MAX_INTERVAL.
+*/
+void updateBlueSteel() {
+  unsigned long now = millis();
+  if (now - lastBlueSteelUpdate >= blueSteelInterval) {
+    lastBlueSteelUpdate = now;
+    drawBlueSteel();
+    blueSteelOffset++;
+    FastLED.show();
+
+    if (blueSteelAccelerating) {
+		accelerateBlueSteel();
+    } else {
+		decelerateBlueSteel();
+    }
+  }
+}
+
+/*
+accelerateBlueSteel
+Description: Decreases blueSteelInterval toward BLUESTEEL_MIN_INTERVAL
+             each call, speeding up the chase. Once the minimum is
+             reached, the pattern will decelerate.
+*/
+void accelerateBlueSteel(){
+  if (blueSteelInterval > BLUESTEEL_MIN_INTERVAL + BLUESTEEL_STEP) {
+    blueSteelInterval -= BLUESTEEL_STEP;
+  } else {
+    blueSteelInterval = BLUESTEEL_MIN_INTERVAL;
+    blueSteelAccelerating = false;
+  }
+}
+
+/*
+decelerateBlueSteel
+Description: Increases blueSteelInterval toward BLUESTEEL_MAX_INTERVAL
+             each call, slowing the chase down. Once the maximum is
+             reached, the pattern will accelerate.
+*/
+void decelerateBlueSteel(){
+  if (blueSteelInterval < BLUESTEEL_MAX_INTERVAL - BLUESTEEL_STEP) {
+    blueSteelInterval += BLUESTEEL_STEP;
+  } else {
+    blueSteelInterval = BLUESTEEL_MAX_INTERVAL;
+    blueSteelAccelerating = true;
+  }
+}
+
+/*
 updateOff
 Description: Clears the strip to black.
 */
@@ -402,6 +467,23 @@ void drawForest() {
     leds[i] = ColorFromPalette(palette, position + forestOffset, 150, LINEARBLEND);
   }
 }
+
+/*
+drawBlueSteel
+Description: Draws a marquee-style chase pattern - alternating blocks
+             of 3 lit blue LEDs and 3 off, based on blueSteelOffset.
+             Shifting the block boundary by blueSteelOffset each frame
+             makes the pattern appear to scroll along the strip.
+*/
+void drawBlueSteel() {
+  for (int i = 0; i < NUM_LEDS; i++) {
+    if (((i + blueSteelOffset) / 3) % 2 == 0) {
+      leds[i] = CHSV(160, 255, 90);
+    } else {
+      leds[i] = CRGB::Black;
+    }
+  }
+}
 /*
 checkForCard
 Description: Polls the RFID reader for a new tag. If none is present,
@@ -427,8 +509,10 @@ void checkForCard() {
     toggleSunriseMode();
   } else if (matchesUID(tag5UID)) {
     toggleDisturbMode();
-  } else if (matchesUID(tag6UID)){
+  } else if (matchesUID(tag6UID)) {
     toggleForestMode();
+  } else if(matchesUID(tag7UID)) {
+    toggleBlueSteelMode();
   } else {
     Serial.print("Unrecognized tag. UID:");
     printUID();
@@ -528,4 +612,18 @@ void toggleForestMode() {
   Serial.print("Tag 6 scanned. Mode: ");
   Serial.println(currentMode == FOREST ? "FOREST" : "OFF");
 }
+
+/*
+toggleBlueSteelMode
+Description: Toggles between BLUESTEEL and OFF when tag7 is scanned.
+             Resets speed state to the slow starting point.
+*/
+void toggleBlueSteelMode() {
+  currentMode = (currentMode == BLUESTEEL) ? OFF : BLUESTEEL;
+  blueSteelInterval = BLUESTEEL_MAX_INTERVAL;
+  blueSteelAccelerating = true;
+  Serial.print("Tag 7 scanned. Mode: ");
+  Serial.println(currentMode == BLUESTEEL ? "BLUESTEEL" : "OFF");
+}
+
 
