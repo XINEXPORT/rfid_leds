@@ -11,6 +11,7 @@ Each tag toggles a specific animated color scheme on and off:
 | Tag 3  | Ocean     | Blue-green gradient                      |
 | Tag 4  | Sunrise   | Red/orange/yellow gradient               |
 | Tag 5  | Disturb   | Slow fading red light                    |
+| Tag 6  | Forest    | Yellow/Orange/Green/Dark Green gradient  |
 
 Scanning a tag again turns its mode back off.
 
