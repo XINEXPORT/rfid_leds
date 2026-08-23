@@ -10,6 +10,7 @@ Each tag toggles a specific animated color scheme on and off:
 | Tag 2  | Halloween | Alternating orange/purple blocks         |
 | Tag 3  | Ocean     | Blue-green gradient                      |
 | Tag 4  | Sunrise   | Red/orange/yellow gradient               |
+| Tag 5  | Disturb   | Slow fading red light                    |
 
 Scanning a tag again turns its mode back off.
 
