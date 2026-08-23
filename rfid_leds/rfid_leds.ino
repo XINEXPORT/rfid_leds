@@ -64,7 +64,7 @@ Description:    LED_PIN is referencing pin 6 on the Arduino Uno.
                 COLOR_ORDER is the color channel order the strip expects (GRB).
 */
 #define LED_PIN     6
-#define NUM_LEDS    60
+#define NUM_LEDS    300
 #define BRIGHTNESS  200
 #define LED_TYPE    WS2812B
 #define COLOR_ORDER GRB
