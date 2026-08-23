@@ -1,3 +1,5 @@
+#include <SPI.h>
+
 /*
  * Title    :   RFID Controlled Mood Lighting
  * Author   :   Christine Hoang
@@ -91,7 +93,7 @@ Description:    leds[NUM_LEDS] is the FastLED pixel array, sized by NUM_LEDS.
 */
 CRGB leds[NUM_LEDS];
 
-enum Mode { OFF, RAINBOW, HALLOWEEN, OCEAN, SUNRISE };
+enum Mode { OFF, RAINBOW, HALLOWEEN, OCEAN, SUNRISE, DISTURB };
 Mode currentMode = OFF;
 
 // OffSet values are initialized to 0 because the FastLED hue values range from 0-255.
@@ -99,6 +101,7 @@ uint8_t hueOffset = 0;
 uint8_t halloweenOffset = 0;
 uint8_t oceanOffset = 0;
 uint8_t sunriseOffset = 0;
+uint8_t disturbOffset = 0;
 
 
 // Lower interval values are faster and higher interval values are slower.
@@ -106,11 +109,13 @@ const unsigned long RAINBOW_INTERVAL   = 20;
 const unsigned long HALLOWEEN_INTERVAL = 200;
 const unsigned long OCEAN_INTERVAL     = 10;
 const unsigned long SUNRISE_INTERVAL   = 20;
+const unsigned long DISTURB_INTERVAL = 20;
 
 unsigned long lastRainbowUpdate   = 0;
 unsigned long lastHalloweenUpdate = 0;
 unsigned long lastOceanUpdate     = 0;
 unsigned long lastSunriseUpdate   = 0;
+unsigned long lastDisturbUpdate = 0;
 
 /*
 Setup
@@ -156,6 +161,8 @@ void startScan() {
     updateOcean();
   } else if (currentMode == SUNRISE){
     updateSunrise();
+  } else if (currentMode == DISTURB) {
+    updateDisturb();
   } else {
     updateOff();
   }
@@ -240,6 +247,25 @@ void updateSunrise() {
 }
 
 /*
+updateDisturb
+Description: Checks how much time has passed since the last frame and,
+             once DISTURB_INTERVAL has elapsed, redraws the strip.
+             drawDisturb fills the strip with a breathing red based on
+             disturbOffset. disturbOffset is incremented each frame so
+             the wave advances over time, and FastLED.show() pushes
+             the updated colors to the LEDs.
+*/
+void updateDisturb() {
+  unsigned long now = millis();
+  if (now - lastDisturbUpdate >= DISTURB_INTERVAL) {
+    lastDisturbUpdate = now;
+    drawDisturb();
+    disturbOffset++;
+    FastLED.show();
+  }
+}
+
+/*
 updateOff
 Description: Clears the strip to black.
 */
@@ -315,6 +341,17 @@ void drawSunrise() {
 }
 
 /*
+drawDisturb
+Description: Uses sin8 to produce a smooth wave between 0-255 based
+             on disturbOffset, scaling red brightness up and down to
+             create a slow breathing/fade effect across the whole strip.
+*/
+void drawDisturb() {
+  uint8_t brightness = sin8(disturbOffset);
+  fill_solid(leds, NUM_LEDS, CRGB(brightness, 0, 0));
+}
+
+/*
 checkForCard
 Description: Polls the RFID reader for a new tag. If none is present,
              returns immediately. Otherwise matches the tag's UID
@@ -337,6 +374,8 @@ void checkForCard() {
     toggleOceanMode();
   } else if (matchesUID(tag4UID)) {
     toggleSunriseMode();
+  } else if (matchesUID(tag5UID)) {
+    toggleDisturbMode();
   } else {
     Serial.print("Unrecognized tag. UID:");
     printUID();
@@ -415,5 +454,15 @@ void toggleSunriseMode() {
   currentMode = (currentMode == SUNRISE) ? OFF : SUNRISE;
   Serial.print("Tag 4 scanned. Mode: ");
   Serial.println(currentMode == SUNRISE ? "SUNRISE" : "OFF");
+}
+
+/*
+toggleDisturbMode
+Description: Toggles between DISTURB and OFF when tag 5 is scanned.
+*/
+void toggleDisturbMode() {
+  currentMode = (currentMode == DISTURB) ? OFF : DISTURB;
+  Serial.print("Tag 5 scanned. Mode: ");
+  Serial.println(currentMode == DISTURB ? "DISTURB" : "OFF");
 }
 
