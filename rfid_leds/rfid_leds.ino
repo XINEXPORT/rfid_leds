@@ -451,10 +451,10 @@ Description: Blends across yellow, orange, green, and forest green
              along the strip.
 */
 void drawForest() {
-  CHSV yellow      = CHSV(42, 240, 220);
-  CHSV orange      = CHSV(20, 240, 220);
-  CHSV green       = CHSV(85, 220, 200);
-  CHSV forestGreen = CHSV(100, 255, 150);
+  CHSV yellow      = CHSV(42, 240, 90);
+  CHSV orange      = CHSV(20, 240, 90);
+  CHSV green       = CHSV(85, 220, 90);
+  CHSV forestGreen = CHSV(100, 255, 90);
 
   CRGB yellowRGB      = yellow;
   CRGB orangeRGB      = orange;
