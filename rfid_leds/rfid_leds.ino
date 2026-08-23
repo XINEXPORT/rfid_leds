@@ -93,7 +93,7 @@ Description:    leds[NUM_LEDS] is the FastLED pixel array, sized by NUM_LEDS.
 */
 CRGB leds[NUM_LEDS];
 
-enum Mode { OFF, RAINBOW, HALLOWEEN, OCEAN, SUNRISE, DISTURB };
+enum Mode { OFF, RAINBOW, HALLOWEEN, OCEAN, SUNRISE, DISTURB, FOREST };
 Mode currentMode = OFF;
 
 // OffSet values are initialized to 0 because the FastLED hue values range from 0-255.
@@ -102,6 +102,7 @@ uint8_t halloweenOffset = 0;
 uint8_t oceanOffset = 0;
 uint8_t sunriseOffset = 0;
 uint8_t disturbOffset = 0;
+uint8_t forestOffset = 0;
 
 
 // Lower interval values are faster and higher interval values are slower.
@@ -110,12 +111,14 @@ const unsigned long HALLOWEEN_INTERVAL = 200;
 const unsigned long OCEAN_INTERVAL     = 10;
 const unsigned long SUNRISE_INTERVAL   = 20;
 const unsigned long DISTURB_INTERVAL = 20;
+const unsigned long FOREST_INTERVAL = 100;
 
 unsigned long lastRainbowUpdate   = 0;
 unsigned long lastHalloweenUpdate = 0;
 unsigned long lastOceanUpdate     = 0;
 unsigned long lastSunriseUpdate   = 0;
 unsigned long lastDisturbUpdate = 0;
+unsigned long lastForestUpdate = 0;
 
 /*
 Setup
@@ -163,6 +166,8 @@ void startScan() {
     updateSunrise();
   } else if (currentMode == DISTURB) {
     updateDisturb();
+  } else if (currentMode == FOREST) {
+    updateForest();
   } else {
     updateOff();
   }
@@ -266,6 +271,26 @@ void updateDisturb() {
 }
 
 /*
+updateForest
+Description: Checks how much time has passed since the last frame and,
+             once FOREST_INTERVAL has elapsed, redraws the strip.
+             drawForest paints a shifting palette gradient across the
+             LEDs based on forestOffset. forestOffset is incremented
+             each frame so the gradient appears to drift along the
+             strip, and FastLED.show() pushes the updated colors to
+             the LEDs.
+*/
+void updateForest() {
+  unsigned long now = millis();
+  if (now - lastForestUpdate >= FOREST_INTERVAL) {
+    lastForestUpdate = now;
+    drawForest();
+    forestOffset++;
+    FastLED.show();
+  }
+}
+
+/*
 updateOff
 Description: Clears the strip to black.
 */
@@ -352,6 +377,32 @@ void drawDisturb() {
 }
 
 /*
+drawForest
+Description: Blends across yellow, orange, green, and forest green
+             using a palette, with each color defined as a CHSV value
+             and converted to CRGB. Each LED's position plus
+             forestOffset picks a point along the palette, and
+             incrementing forestOffset each frame scrolls that point
+             along the strip.
+*/
+void drawForest() {
+  CHSV yellow      = CHSV(42, 240, 220);
+  CHSV orange      = CHSV(20, 240, 220);
+  CHSV green       = CHSV(85, 220, 200);
+  CHSV forestGreen = CHSV(100, 255, 150);
+
+  CRGB yellowRGB      = yellow;
+  CRGB orangeRGB      = orange;
+  CRGB greenRGB       = green;
+  CRGB forestGreenRGB = forestGreen;
+  CRGBPalette16 palette(yellowRGB, orangeRGB, greenRGB, forestGreenRGB);
+
+  for (int i = 0; i < NUM_LEDS; i++) {
+    uint8_t position = (i * 255) / NUM_LEDS;
+    leds[i] = ColorFromPalette(palette, position + forestOffset, 150, LINEARBLEND);
+  }
+}
+/*
 checkForCard
 Description: Polls the RFID reader for a new tag. If none is present,
              returns immediately. Otherwise matches the tag's UID
@@ -376,6 +427,8 @@ void checkForCard() {
     toggleSunriseMode();
   } else if (matchesUID(tag5UID)) {
     toggleDisturbMode();
+  } else if (matchesUID(tag6UID)){
+    toggleForestMode();
   } else {
     Serial.print("Unrecognized tag. UID:");
     printUID();
@@ -464,5 +517,15 @@ void toggleDisturbMode() {
   currentMode = (currentMode == DISTURB) ? OFF : DISTURB;
   Serial.print("Tag 5 scanned. Mode: ");
   Serial.println(currentMode == DISTURB ? "DISTURB" : "OFF");
+}
+
+/*
+toggleForestMode
+Description: Toggles between FOREST and OFF when tag 6 is scanned.
+*/
+void toggleForestMode() {
+  currentMode = (currentMode == FOREST) ? OFF : FOREST;
+  Serial.print("Tag 6 scanned. Mode: ");
+  Serial.println(currentMode == FOREST ? "FOREST" : "OFF");
 }
 
