@@ -1,4 +1,4 @@
-# RFID Controlled Mood Lighting
+# RFID-Addressable LED Lighting Controller
 ### Purpose
 Tap an RFID/NFC tag to switch an LED strip between different color moods.
 
