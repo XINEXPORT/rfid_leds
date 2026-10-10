@@ -93,7 +93,7 @@ Description:    leds[NUM_LEDS] is the FastLED pixel array, sized by NUM_LEDS.
 */
 CRGB leds[NUM_LEDS];
 
-enum Mode { OFF, RAINBOW, HALLOWEEN, OCEAN, SUNRISE, DISTURB, FOREST, BLUESTEEL, STROBE, HELLSTROBE };
+enum Mode { OFF, RAINBOW, HALLOWEEN, OCEAN, SUNRISE, DISTURB, FOREST, BLUESTEEL, STROBE, HELLSTROBE, FLICKER };
 Mode currentMode = OFF;
 
 // OffSet values are initialized to 0 because the FastLED hue values range from 0-255.
@@ -106,6 +106,8 @@ uint8_t forestOffset = 0;
 uint8_t blueSteelOffset = 0;
 uint8_t strobeOffset = 0;
 uint8_t hellStrobeOffset = 0;
+uint8_t flickerOffset = 0;
+uint8_t flickerDarkFrames = 0;
 
 // Mutables variables
 unsigned long blueSteelInterval = 100;
@@ -125,6 +127,7 @@ const unsigned long BLUESTEEL_MAX_INTERVAL = 100;
 const unsigned long BLUESTEEL_STEP = 2;  
 const unsigned long STROBE_INTERVAL = 50;
 const unsigned long HELLSTROBE_INTERVAL = 70;
+const unsigned long FLICKER_INTERVAL = 20;
 
 unsigned long lastRainbowUpdate   = 0;
 unsigned long lastHalloweenUpdate = 0;
@@ -135,6 +138,7 @@ unsigned long lastForestUpdate = 0;
 unsigned long lastBlueSteelUpdate = 0;
 unsigned long lastStrobeUpdate = 0;
 unsigned long lastHellStrobeUpdate = 0;
+unsigned long lastFlickerUpdate = 0;
 
 /*
 Setup
@@ -190,6 +194,8 @@ void startScan() {
     updateStrobe();
   } else if (currentMode == HELLSTROBE) {
     updateHellStrobe();
+  } else if (currentMode == FLICKER) {
+    updateFlicker();
   } else {
     updateOff();
   }
@@ -371,6 +377,25 @@ void updateHellStrobe() {
     lastHellStrobeUpdate = now;
     drawHellStrobe();
     hellStrobeOffset++;
+    FastLED.show();
+  }
+}
+
+/*
+updateFlicker
+Description: Checks how much time has passed since the last frame and,
+             once FLICKER_INTERVAL has elapsed, redraws the strip.
+             drawFlicker holds a steady dim glow that randomly cuts to
+             black for a few frames. flickerOffset is incremented each
+             frame, and FastLED.show() pushes the updated colors to
+             the LEDs.
+*/
+void updateFlicker() {
+  unsigned long now = millis();
+  if (now - lastFlickerUpdate >= FLICKER_INTERVAL) {
+    lastFlickerUpdate = now;
+    drawFlicker();
+    flickerOffset++;
     FastLED.show();
   }
 }
@@ -563,6 +588,30 @@ void drawHellStrobe() {
 }
 
 /*
+drawFlicker
+Description: Holds a steady dim warm glow across the whole strip. Each
+             frame there is a small random chance (random8 below 12,
+             about 1 in 21) that the light drops out; flickerDarkFrames
+             is then set to 1-3 frames of black, like a bad connection.
+             While flickerDarkFrames is above 0 the strip stays black
+             and counts down, then the glow returns.
+*/
+void drawFlicker() {
+  CRGB glow = CRGB(130, 100, 40);
+
+  if (flickerDarkFrames == 0 and random8() < 12) {
+    flickerDarkFrames = random8(1, 4);
+  }
+
+  if (flickerDarkFrames > 0) {
+    fill_solid(leds, NUM_LEDS, CRGB::Black);
+    flickerDarkFrames--;
+  } else {
+    fill_solid(leds, NUM_LEDS, glow);
+  }
+}
+
+/*
 checkForCard
 Description: Polls the RFID reader for a new tag. If none is present,
              returns immediately. Otherwise matches the tag's UID
@@ -595,6 +644,8 @@ void checkForCard() {
     toggleStrobeMode();
   } else if (matchesUID(tag9UID)) {
     toggleHellStrobeMode();
+  } else if (matchesUID(tag10UID)) {
+    toggleFlickerMode();
   } else {
     Serial.print("Unrecognized tag. UID:");
     printUID();
@@ -731,4 +782,16 @@ void toggleHellStrobeMode() {
   hellStrobeOffset = 0;
   Serial.print("Tag 9 scanned. Mode: ");
   Serial.println(currentMode == HELLSTROBE ? "HELLSTROBE" : "OFF");
+}
+
+/*
+toggleFlickerMode
+Description: Toggles between FLICKER and OFF when tag 10 is scanned.
+             Clears any pending dropout so it always starts lit.
+*/
+void toggleFlickerMode() {
+  currentMode = (currentMode == FLICKER) ? OFF : FLICKER;
+  flickerDarkFrames = 0;
+  Serial.print("Tag 10 scanned. Mode: ");
+  Serial.println(currentMode == FLICKER ? "FLICKER" : "OFF");
 }
