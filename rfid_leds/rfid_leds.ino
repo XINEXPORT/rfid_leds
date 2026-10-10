@@ -93,8 +93,12 @@ Description:    leds[NUM_LEDS] is the FastLED pixel array, sized by NUM_LEDS.
 */
 CRGB leds[NUM_LEDS];
 
-enum Mode { OFF, RAINBOW, HALLOWEEN, OCEAN, SUNRISE, DISTURB, FOREST, BLUESTEEL, STROBE, HELLSTROBE, FLICKER };
+enum Mode { OFF, RAINBOW, HALLOWEEN, OCEAN, SUNRISE, DISTURB, FOREST, BLUESTEEL, STROBE, HELLSTROBE, FLICKER, CYCLE };
 Mode currentMode = OFF;
+
+// Mode the CYCLE mode is currently showing. Kept as a byte so the cycle
+// helper functions don't need the Mode type in their signatures.
+byte cycleMode = RAINBOW;
 
 // OffSet values are initialized to 0 because the FastLED hue values range from 0-255.
 uint8_t hueOffset = 0;
@@ -127,7 +131,8 @@ const unsigned long BLUESTEEL_MAX_INTERVAL = 100;
 const unsigned long BLUESTEEL_STEP = 2;  
 const unsigned long STROBE_INTERVAL = 50;
 const unsigned long HELLSTROBE_INTERVAL = 70;
-const unsigned long FLICKER_INTERVAL = 20;
+const unsigned long FLICKER_INTERVAL = 40;
+const unsigned long CYCLE_INTERVAL = 10000;
 
 unsigned long lastRainbowUpdate   = 0;
 unsigned long lastHalloweenUpdate = 0;
@@ -139,6 +144,7 @@ unsigned long lastBlueSteelUpdate = 0;
 unsigned long lastStrobeUpdate = 0;
 unsigned long lastHellStrobeUpdate = 0;
 unsigned long lastFlickerUpdate = 0;
+unsigned long lastCycleChange = 0;
 
 /*
 Setup
@@ -172,29 +178,75 @@ void loop() {
 }
 
 /*
+nextCycleMode
+Description: Returns the mode that follows the given one in the cycle.
+             Steps through the enum in order, skipping OFF, and wraps
+             from FLICKER (the last cycled mode) back to RAINBOW.
+*/
+byte nextCycleMode(byte mode) {
+  return (mode == FLICKER) ? RAINBOW : mode + 1;
+}
+
+/*
+activeMode
+Description: Returns the mode whose animation should be drawn right
+             now. Normally that is currentMode, but while CYCLE is
+             active it is cycleMode, the mode the cycle is showing.
+*/
+byte activeMode() {
+  return (currentMode == CYCLE) ? cycleMode : currentMode;
+}
+
+/*
+advanceCycle
+Description: While CYCLE is active, moves cycleMode on to the next
+             mode once CYCLE_INTERVAL has elapsed. Does nothing in
+             any other mode.
+*/
+void advanceCycle() {
+  unsigned long now = millis();
+  if (currentMode == CYCLE and now - lastCycleChange >= CYCLE_INTERVAL) {
+    lastCycleChange = now;
+    cycleMode = nextCycleMode(cycleMode);
+    Serial.print("Cycle advanced to mode ");
+    Serial.println(cycleMode);
+  }
+}
+
+/*
 startScan
-Description: Runs the update function for the currently active mode.
+Description: Advances the cycle if it is due, then runs the update
+             function for whichever mode is active.
 */
 void startScan() {
-  if (currentMode == RAINBOW) {
+  advanceCycle();
+  runMode(activeMode());
+}
+
+/*
+runMode
+Description: Runs the update function for the given mode.
+*/
+void runMode(byte mode) {
+  if (mode == RAINBOW) {
     updateRainbow();
-  } else if (currentMode == HALLOWEEN) {
+  } else if (mode == HALLOWEEN) {
     updateHalloween();
-  } else if (currentMode == OCEAN) {
+  } else if (mode == OCEAN) {
     updateOcean();
-  } else if (currentMode == SUNRISE) {
+  } else if (mode == SUNRISE) {
     updateSunrise();
-  } else if (currentMode == DISTURB) {
+  } else if (mode == DISTURB) {
     updateDisturb();
-  } else if (currentMode == FOREST) {
+  } else if (mode == FOREST) {
     updateForest();
-  } else if (currentMode == BLUESTEEL) {
+  } else if (mode == BLUESTEEL) {
     updateBlueSteel();
-  } else if (currentMode == STROBE) {
+  } else if (mode == STROBE) {
     updateStrobe();
-  } else if (currentMode == HELLSTROBE) {
+  } else if (mode == HELLSTROBE) {
     updateHellStrobe();
-  } else if (currentMode == FLICKER) {
+  } else if (mode == FLICKER) {
     updateFlicker();
   } else {
     updateOff();
@@ -646,6 +698,8 @@ void checkForCard() {
     toggleHellStrobeMode();
   } else if (matchesUID(tag10UID)) {
     toggleFlickerMode();
+  } else if (matchesUID(tag11UID)) {
+    toggleCycleMode();
   } else {
     Serial.print("Unrecognized tag. UID:");
     printUID();
@@ -794,4 +848,18 @@ void toggleFlickerMode() {
   flickerDarkFrames = 0;
   Serial.print("Tag 10 scanned. Mode: ");
   Serial.println(currentMode == FLICKER ? "FLICKER" : "OFF");
+}
+
+/*
+toggleCycleMode
+Description: Toggles between CYCLE and OFF when tag 11 is scanned.
+             Restarts the cycle from RAINBOW and resets the timer so
+             each mode gets its full CYCLE_INTERVAL.
+*/
+void toggleCycleMode() {
+  currentMode = (currentMode == CYCLE) ? OFF : CYCLE;
+  cycleMode = RAINBOW;
+  lastCycleChange = millis();
+  Serial.print("Tag 11 scanned. Mode: ");
+  Serial.println(currentMode == CYCLE ? "CYCLE" : "OFF");
 }
