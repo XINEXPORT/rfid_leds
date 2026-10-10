@@ -93,7 +93,7 @@ Description:    leds[NUM_LEDS] is the FastLED pixel array, sized by NUM_LEDS.
 */
 CRGB leds[NUM_LEDS];
 
-enum Mode { OFF, RAINBOW, HALLOWEEN, OCEAN, SUNRISE, DISTURB, FOREST, BLUESTEEL, STROBE, HELLSTROBE, FLICKER, CYCLE };
+enum Mode { OFF, RAINBOW, HALLOWEEN, OCEAN, SUNRISE, DISTURB, FOREST, BLUESTEEL, STROBE, HELLSTROBE, FLICKER, SPOOKY, CYCLE };
 Mode currentMode = OFF;
 
 // Mode the CYCLE mode is currently showing. Kept as a byte so the cycle
@@ -112,6 +112,7 @@ uint8_t strobeOffset = 0;
 uint8_t hellStrobeOffset = 0;
 uint8_t flickerOffset = 0;
 uint8_t flickerDarkFrames = 0;
+uint8_t spookyOffset = 0;
 
 // Mutables variables
 unsigned long blueSteelInterval = 100;
@@ -132,6 +133,7 @@ const unsigned long BLUESTEEL_STEP = 2;
 const unsigned long STROBE_INTERVAL = 50;
 const unsigned long HELLSTROBE_INTERVAL = 70;
 const unsigned long FLICKER_INTERVAL = 40;
+const unsigned long SPOOKY_INTERVAL = 100;
 const unsigned long CYCLE_INTERVAL = 10000;
 
 unsigned long lastRainbowUpdate   = 0;
@@ -144,6 +146,7 @@ unsigned long lastBlueSteelUpdate = 0;
 unsigned long lastStrobeUpdate = 0;
 unsigned long lastHellStrobeUpdate = 0;
 unsigned long lastFlickerUpdate = 0;
+unsigned long lastSpookyUpdate = 0;
 unsigned long lastCycleChange = 0;
 
 /*
@@ -181,10 +184,10 @@ void loop() {
 nextCycleMode
 Description: Returns the mode that follows the given one in the cycle.
              Steps through the enum in order, skipping OFF, and wraps
-             from FLICKER (the last cycled mode) back to RAINBOW.
+             from SPOOKY (the last cycled mode) back to RAINBOW.
 */
 byte nextCycleMode(byte mode) {
-  return (mode == FLICKER) ? RAINBOW : mode + 1;
+  return (mode == SPOOKY) ? RAINBOW : mode + 1;
 }
 
 /*
@@ -248,6 +251,8 @@ void runMode(byte mode) {
     updateHellStrobe();
   } else if (mode == FLICKER) {
     updateFlicker();
+  } else if (mode == SPOOKY) {
+    updateSpooky();
   } else {
     updateOff();
   }
@@ -448,6 +453,26 @@ void updateFlicker() {
     lastFlickerUpdate = now;
     drawFlicker();
     flickerOffset++;
+    FastLED.show();
+  }
+}
+
+/*
+updateSpooky
+Description: Checks how much time has passed since the last frame and,
+             once SPOOKY_INTERVAL has elapsed, redraws the strip.
+             drawSpooky paints a shifting palette gradient across the
+             LEDs based on spookyOffset. spookyOffset is incremented
+             each frame so the gradient appears to drift along the
+             strip, and FastLED.show() pushes the updated colors to
+             the LEDs.
+*/
+void updateSpooky() {
+  unsigned long now = millis();
+  if (now - lastSpookyUpdate >= SPOOKY_INTERVAL) {
+    lastSpookyUpdate = now;
+    drawSpooky();
+    spookyOffset++;
     FastLED.show();
   }
 }
@@ -664,6 +689,30 @@ void drawFlicker() {
 }
 
 /*
+drawSpooky
+Description: Blends between green and dark purple using a palette,
+             with each color defined as a CHSV value and converted to
+             CRGB. The palette ends on green again so the gradient
+             loops without a visible seam. Each LED's position plus
+             spookyOffset picks a point along the palette, and
+             incrementing spookyOffset each frame scrolls that point
+             along the strip.
+*/
+void drawSpooky() {
+  CHSV green      = CHSV(96, 255, 110);
+  CHSV darkPurple = CHSV(190, 255, 110);
+
+  CRGB greenRGB      = green;
+  CRGB darkPurpleRGB = darkPurple;
+  CRGBPalette16 palette(greenRGB, darkPurpleRGB, darkPurpleRGB, greenRGB);
+
+  for (int i = 0; i < NUM_LEDS; i++) {
+    uint8_t position = (i * 255) / NUM_LEDS;
+    leds[i] = ColorFromPalette(palette, position + spookyOffset, 200, LINEARBLEND);
+  }
+}
+
+/*
 checkForCard
 Description: Polls the RFID reader for a new tag. If none is present,
              returns immediately. Otherwise matches the tag's UID
@@ -700,6 +749,8 @@ void checkForCard() {
     toggleFlickerMode();
   } else if (matchesUID(tag11UID)) {
     toggleCycleMode();
+  } else if (matchesUID(tag12UID)) {
+    toggleSpookyMode();
   } else {
     Serial.print("Unrecognized tag. UID:");
     printUID();
@@ -848,6 +899,16 @@ void toggleFlickerMode() {
   flickerDarkFrames = 0;
   Serial.print("Tag 10 scanned. Mode: ");
   Serial.println(currentMode == FLICKER ? "FLICKER" : "OFF");
+}
+
+/*
+toggleSpookyMode
+Description: Toggles between SPOOKY and OFF when tag 12 is scanned.
+*/
+void toggleSpookyMode() {
+  currentMode = (currentMode == SPOOKY) ? OFF : SPOOKY;
+  Serial.print("Tag 12 scanned. Mode: ");
+  Serial.println(currentMode == SPOOKY ? "SPOOKY" : "OFF");
 }
 
 /*
