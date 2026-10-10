@@ -64,7 +64,7 @@ Description:    LED_PIN is referencing pin 6 on the Arduino Uno.
                 COLOR_ORDER is the color channel order the strip expects (GRB).
 */
 #define LED_PIN     6
-#define NUM_LEDS    300
+#define NUM_LEDS    60
 #define BRIGHTNESS  200
 #define LED_TYPE    WS2812B
 #define COLOR_ORDER GRB
@@ -93,7 +93,7 @@ Description:    leds[NUM_LEDS] is the FastLED pixel array, sized by NUM_LEDS.
 */
 CRGB leds[NUM_LEDS];
 
-enum Mode { OFF, RAINBOW, HALLOWEEN, OCEAN, SUNRISE, DISTURB, FOREST, BLUESTEEL };
+enum Mode { OFF, RAINBOW, HALLOWEEN, OCEAN, SUNRISE, DISTURB, FOREST, BLUESTEEL, STROBE };
 Mode currentMode = OFF;
 
 // OffSet values are initialized to 0 because the FastLED hue values range from 0-255.
@@ -104,6 +104,7 @@ uint8_t sunriseOffset = 0;
 uint8_t disturbOffset = 0;
 uint8_t forestOffset = 0;
 uint8_t blueSteelOffset = 0;
+uint8_t strobeOffset = 0;
 
 // Mutables variables
 unsigned long blueSteelInterval = 100;
@@ -121,6 +122,7 @@ const unsigned long FOREST_INTERVAL = 100;
 const unsigned long BLUESTEEL_MIN_INTERVAL = 5;  
 const unsigned long BLUESTEEL_MAX_INTERVAL = 100; 
 const unsigned long BLUESTEEL_STEP = 2;  
+const unsigned long STROBE_INTERVAL = 50;
 
 unsigned long lastRainbowUpdate   = 0;
 unsigned long lastHalloweenUpdate = 0;
@@ -129,6 +131,7 @@ unsigned long lastSunriseUpdate   = 0;
 unsigned long lastDisturbUpdate = 0;
 unsigned long lastForestUpdate = 0;
 unsigned long lastBlueSteelUpdate = 0;
+unsigned long lastStrobeUpdate = 0;
 
 /*
 Setup
@@ -180,6 +183,8 @@ void startScan() {
     updateForest();
   } else if (currentMode == BLUESTEEL) {
     updateBlueSteel();
+  } else if (currentMode == STROBE) {
+    updateStrobe();
   } else {
     updateOff();
   }
@@ -322,6 +327,26 @@ void updateBlueSteel() {
     } else {
 		decelerateBlueSteel();
     }
+  }
+}
+
+/*
+updateStrobe
+Description: Checks how much time has passed since the last frame and,
+             once STROBE_INTERVAL has elapsed, redraws the strip.
+             drawStrobe flashes the whole strip white on even frames
+             and black on odd frames based on strobeOffset.
+             strobeOffset is incremented each frame so the flash
+             alternates, and FastLED.show() pushes the updated colors
+             to the LEDs.
+*/
+void updateStrobe() {
+  unsigned long now = millis();
+  if (now - lastStrobeUpdate >= STROBE_INTERVAL) {
+    lastStrobeUpdate = now;
+    drawStrobe();
+    strobeOffset++;
+    FastLED.show();
   }
 }
 
@@ -484,6 +509,19 @@ void drawBlueSteel() {
     }
   }
 }
+
+/*
+drawStrobe
+Description: Fills the whole strip with white when strobeOffset is even
+             and black when it is odd, producing a hard on/off flash.
+             The white is held below full intensity to keep the strip's
+             current draw within what a 5v supply can handle.
+*/
+void drawStrobe() {
+  CRGB color = (strobeOffset % 2 == 0) ? CRGB(150, 150, 150) : CRGB::Black;
+  fill_solid(leds, NUM_LEDS, color);
+}
+
 /*
 checkForCard
 Description: Polls the RFID reader for a new tag. If none is present,
@@ -513,6 +551,8 @@ void checkForCard() {
     toggleForestMode();
   } else if(matchesUID(tag7UID)) {
     toggleBlueSteelMode();
+  } else if (matchesUID(tag8UID)) {
+    toggleStrobeMode();
   } else {
     Serial.print("Unrecognized tag. UID:");
     printUID();
@@ -626,4 +666,15 @@ void toggleBlueSteelMode() {
   Serial.println(currentMode == BLUESTEEL ? "BLUESTEEL" : "OFF");
 }
 
-
+/*
+toggleStrobeMode
+Description: Toggles between STROBE and OFF when tag 8 is scanned.
+             Resets the flash phase so the strobe always starts on a
+             white frame.
+*/
+void toggleStrobeMode() {
+  currentMode = (currentMode == STROBE) ? OFF : STROBE;
+  strobeOffset = 0;
+  Serial.print("Tag 8 scanned. Mode: ");
+  Serial.println(currentMode == STROBE ? "STROBE" : "OFF");
+}
