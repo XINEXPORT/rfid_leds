@@ -93,7 +93,7 @@ Description:    leds[NUM_LEDS] is the FastLED pixel array, sized by NUM_LEDS.
 */
 CRGB leds[NUM_LEDS];
 
-enum Mode { OFF, RAINBOW, HALLOWEEN, OCEAN, SUNRISE, DISTURB, FOREST, BLUESTEEL, STROBE };
+enum Mode { OFF, RAINBOW, HALLOWEEN, OCEAN, SUNRISE, DISTURB, FOREST, BLUESTEEL, STROBE, HELLSTROBE };
 Mode currentMode = OFF;
 
 // OffSet values are initialized to 0 because the FastLED hue values range from 0-255.
@@ -105,6 +105,7 @@ uint8_t disturbOffset = 0;
 uint8_t forestOffset = 0;
 uint8_t blueSteelOffset = 0;
 uint8_t strobeOffset = 0;
+uint8_t hellStrobeOffset = 0;
 
 // Mutables variables
 unsigned long blueSteelInterval = 100;
@@ -123,6 +124,7 @@ const unsigned long BLUESTEEL_MIN_INTERVAL = 5;
 const unsigned long BLUESTEEL_MAX_INTERVAL = 100; 
 const unsigned long BLUESTEEL_STEP = 2;  
 const unsigned long STROBE_INTERVAL = 50;
+const unsigned long HELLSTROBE_INTERVAL = 70;
 
 unsigned long lastRainbowUpdate   = 0;
 unsigned long lastHalloweenUpdate = 0;
@@ -132,6 +134,7 @@ unsigned long lastDisturbUpdate = 0;
 unsigned long lastForestUpdate = 0;
 unsigned long lastBlueSteelUpdate = 0;
 unsigned long lastStrobeUpdate = 0;
+unsigned long lastHellStrobeUpdate = 0;
 
 /*
 Setup
@@ -185,6 +188,8 @@ void startScan() {
     updateBlueSteel();
   } else if (currentMode == STROBE) {
     updateStrobe();
+  } else if (currentMode == HELLSTROBE) {
+    updateHellStrobe();
   } else {
     updateOff();
   }
@@ -346,6 +351,26 @@ void updateStrobe() {
     lastStrobeUpdate = now;
     drawStrobe();
     strobeOffset++;
+    FastLED.show();
+  }
+}
+
+/*
+updateHellStrobe
+Description: Checks how much time has passed since the last frame and,
+             once HELLSTROBE_INTERVAL has elapsed, redraws the strip.
+             drawHellStrobe flashes a fire color on even frames and a
+             dim smoldering red on odd frames based on hellStrobeOffset.
+             hellStrobeOffset is incremented each frame so the flash
+             alternates and the color rotates, and FastLED.show()
+             pushes the updated colors to the LEDs.
+*/
+void updateHellStrobe() {
+  unsigned long now = millis();
+  if (now - lastHellStrobeUpdate >= HELLSTROBE_INTERVAL) {
+    lastHellStrobeUpdate = now;
+    drawHellStrobe();
+    hellStrobeOffset++;
     FastLED.show();
   }
 }
@@ -523,6 +548,21 @@ void drawStrobe() {
 }
 
 /*
+drawHellStrobe
+Description: On even frames, fills the strip with a flash whose hue
+             steps through the fire range (red, red-orange, orange,
+             amber) as hellStrobeOffset advances. On odd frames, drops
+             to a dim deep red instead of black so the strip keeps
+             smoldering between flashes.
+*/
+void drawHellStrobe() {
+  uint8_t hue = (hellStrobeOffset * 4) % 32;
+  CRGB flash = CHSV(hue, 255, 200);
+  CRGB smolder = CHSV(0, 255, 15);
+  fill_solid(leds, NUM_LEDS, (hellStrobeOffset % 2 == 0) ? flash : smolder);
+}
+
+/*
 checkForCard
 Description: Polls the RFID reader for a new tag. If none is present,
              returns immediately. Otherwise matches the tag's UID
@@ -553,6 +593,8 @@ void checkForCard() {
     toggleBlueSteelMode();
   } else if (matchesUID(tag8UID)) {
     toggleStrobeMode();
+  } else if (matchesUID(tag9UID)) {
+    toggleHellStrobeMode();
   } else {
     Serial.print("Unrecognized tag. UID:");
     printUID();
@@ -677,4 +719,16 @@ void toggleStrobeMode() {
   strobeOffset = 0;
   Serial.print("Tag 8 scanned. Mode: ");
   Serial.println(currentMode == STROBE ? "STROBE" : "OFF");
+}
+
+/*
+toggleHellStrobeMode
+Description: Toggles between HELLSTROBE and OFF when tag 9 is scanned.
+             Resets the flash phase so it always starts on a flash frame.
+*/
+void toggleHellStrobeMode() {
+  currentMode = (currentMode == HELLSTROBE) ? OFF : HELLSTROBE;
+  hellStrobeOffset = 0;
+  Serial.print("Tag 9 scanned. Mode: ");
+  Serial.println(currentMode == HELLSTROBE ? "HELLSTROBE" : "OFF");
 }
