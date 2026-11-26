@@ -10,7 +10,7 @@ Each tag toggles a specific animated color scheme on and off:
 | Tag     | Mode             | Color Mode Description                   |
 | --------| ---------------- | -----------------------------------------|
 | Tag 1   | Classic Twinkle  | Alternating classic multi-colored        |
-| Tag 2   | Xmas             | Alternating single led red and green      |
+| Tag 2   | Xmas             | Alternating single led red and green     |
 | Tag 3   | Evergreen        | Green gradient                           |
 | Tag 4   | Rudolph          | Red gradient                             |
 | Tag 5   | Candy Cane       | Alternating red and white                |
