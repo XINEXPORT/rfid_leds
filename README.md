@@ -2,17 +2,25 @@
 ### Purpose
 Tap an RFID/NFC tag to switch an LED strip between different color moods.
 
+There are variety of modes to choose from. I am currently using the Xmas edition
+which is reflected below.
+
 Each tag toggles a specific animated color scheme on and off:
 
-| Tag    | Mode         | Color Mode Description                     |
-| ------ | ------------ | ------------------------------------------ |
-| Tag 1  | Rainbow      | Scrolling full-spectrum gradient           |
-| Tag 2  | Halloween    | Alternating orange/purple blocks           |
-| Tag 3  | Ocean        | Blue-green gradient                        |
-| Tag 4  | Sunrise      | Red/orange/yellow gradient                 |
-| Tag 5  | Disturb      | Slow fading red light                      |
-| Tag 6  | Forest       | Yellow/Orange/Green/Dark Green gradient    |
-| Tag 7  | Blue Steel   | Scrolling blue marquee with cycling speed  |
+| Tag     | Mode             | Color Mode Description                   |
+| --------| ---------------- | -----------------------------------------|
+| Tag 1   | Classic Twinkle  | Alternating classic multi-colored        |
+| Tag 2   | Xmas             | Alternating single led red and green      |
+| Tag 3   | Evergreen        | Green gradient                           |
+| Tag 4   | Rudolph          | Red gradient                             |
+| Tag 5   | Candy Cane       | Alternating red and white                |
+| Tag 6   | Holly            | Slow fade of red and green               |
+| Tag 7   | Turbo Santa      | Red and Green Marquee with cycling speed |
+| Tag 8   | Dasher           | Single Green marquee                     |
+| Tag 9   | Prancer          | Single Red marquee in reverse direction  |
+| Tag 10  | Reindeer         | Combination of Dasher and Prancer modes  |
+| Tag 11  | Cycle            | Cycle through all the modes              |
+| Tag 12  | Classic          | Static classic multi-color               |
 
 Scanning a tag again turns its mode back off.
 
